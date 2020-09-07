@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -38,6 +39,9 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("OverwriteModifiers")
 @Mixin(ServerChunkManager.class)
 public abstract class ServerChunkManagerMixin {
+    @Unique
+    private static final int INITIAL_CHUNK_LEVEL = ThreadedAnvilChunkStorage.MAX_LEVEL - ChunkStatus.getMaxDistanceFromFull();
+
     @Shadow
     @Final
     private ServerChunkManager.MainThreadExecutor mainThreadExecutor;
@@ -128,7 +132,7 @@ public abstract class ServerChunkManagerMixin {
      */
     private Chunk getChunkBlocking(int x, int z, ChunkStatus status, boolean create) {
         final long key = ChunkPos.toLong(x, z);
-        final int level = 33 + ChunkStatus.getDistanceFromFull(status);
+        final int level = INITIAL_CHUNK_LEVEL + ChunkStatus.getDistanceFromFull(status);
 
         ChunkHolder holder = this.getChunkHolder(key);
 
