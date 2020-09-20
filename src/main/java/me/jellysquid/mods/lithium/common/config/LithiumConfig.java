@@ -39,6 +39,7 @@ public class LithiumConfig {
         this.addMixinRule("alloc", true);
         this.addMixinRule("alloc.chunk_random", true);
         this.addMixinRule("alloc.chunk_ticking", true);
+        this.addMixinRule("alloc.composter", true);
         this.addMixinRule("alloc.entity_tracker", true);
         this.addMixinRule("alloc.enum_values", true);
         this.addMixinRule("alloc.world_ticking", true);
@@ -68,7 +69,7 @@ public class LithiumConfig {
         this.addMixinRule("entity.replace_entitytype_predicates", true);
         this.addMixinRule("entity.skip_fire_check", true);
         this.addMixinRule("entity.stream_entity_collisions_lazily", true);
-        this.addMixinRule("entity.consolidated_fluid_checks", false);
+        this.addMixinRule("entity.consolidated_fluid_checks", true);
 
         this.addMixinRule("gen", true);
         this.addMixinRule("gen.biome_noise_cache", true);
@@ -92,7 +93,7 @@ public class LithiumConfig {
         this.addMixinRule("tag", true);
 
         this.addMixinRule("world", true);
-        this.addMixinRule("world.block_entity_ticking", true);
+        this.addMixinRule("world.block_entity_ticking", false /* TODO: fix remaining issues */);
         this.addMixinRule("world.chunk_access", true);
         this.addMixinRule("world.chunk_inline_block_access", true);
         this.addMixinRule("world.chunk_task_system", true);
