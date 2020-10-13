@@ -115,9 +115,7 @@ public abstract class ServerChunkManagerMixin {
     }
 
     private Chunk getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
-        return CompletableFuture.supplyAsync(() -> {
-            return this.getChunk(x, z, status, create);
-        }, this.mainThreadExecutor).join();
+        return CompletableFuture.supplyAsync(() -> this.getChunk(x, z, status, create), this.mainThreadExecutor).join();
     }
 
     /**
@@ -137,7 +135,7 @@ public abstract class ServerChunkManagerMixin {
         ChunkHolder holder = this.getChunkHolder(key);
 
         // Check if the holder is present and is at least of the level we need
-        if (isMissingForLevel(holder, level)) {
+        if (this.isMissingForLevel(holder, level)) {
             if (create) {
                 // The chunk holder is missing, so we need to create a ticket in order to load it
                 this.createChunkLoadTicket(x, z, level);
@@ -149,7 +147,7 @@ public abstract class ServerChunkManagerMixin {
                 holder = this.getChunkHolder(key);
 
                 // If the holder is still not available, we need to fail now... something is wrong.
-                if (isMissingForLevel(holder, level)) {
+                if (this.isMissingForLevel(holder, level)) {
                     throw Util.throwOrPause(new IllegalStateException("No chunk holder after ticket has been added"));
                 }
             } else {

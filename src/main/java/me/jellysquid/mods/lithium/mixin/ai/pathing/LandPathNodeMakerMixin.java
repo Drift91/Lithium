@@ -8,8 +8,9 @@ import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.ai.pathing.PathNodeType;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.BlockView;
+import net.minecraft.world.CollisionView;
+import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkCache;
 import net.minecraft.world.chunk.ChunkSection;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -56,7 +57,7 @@ public abstract class LandPathNodeMakerMixin {
     }
 
     /**
-     * @reason Use optimized implementation
+     * @reason Use optimized implementation which avoids scanning blocks for dangers where possible
      * @author JellySquid
      */
     @Overwrite
@@ -67,23 +68,27 @@ public abstract class LandPathNodeMakerMixin {
 
         ChunkSection section = null;
 
-        // If the neighbors for this block are all within a single chunk section, that means all block reads will
-        // come from it alone. TODO: Allow grabbing chunks from other BlockView implementations
-        if (WorldHelper.areNeighborsWithinSameChunk(pos) && world instanceof ChunkCache) {
-            BlockView chunk = ((ChunkCache) world).getExistingChunk(x >> 4, z >> 4);
+        // Check that all the block's neighbors are within the same chunk column. If so, we can isolate all our block
+        // reads to just one chunk and avoid hits against the server chunk manager.
+        if (world instanceof CollisionView && WorldHelper.areNeighborsWithinSameChunk(pos)) {
+            // If the y-coordinate is within bounds, we can cache the chunk section. Otherwise, the if statement to check
+            // if the cached chunk section was initialized will early-exit.
+            if (!World.isHeightInvalid(y)) {
+                // This cast is always safe and is necessary to obtain direct references to chunk sections.
+                Chunk chunk = (Chunk) ((CollisionView) world).getExistingChunk(x >> 4, z >> 4);
 
-            if (chunk != null) {
-                section = ((Chunk) chunk).getSectionArray()[y >> 4];
-
-                // If we can guarantee that blocks won't be modified while the cache is active, try to see if the chunk
-                // section contains any dangerous blocks within the palette. If not, we can assume any checks against
-                // this chunk section will always fail, allowing us to fast-exit.
-                //
-                // It's not cheap to scan the block palette initially, though it will always result in a net-gain when
-                // the cache is used more than once.
-                if (LandPathNodeCache.isSectionSafeAsNeighbor(section)) {
-                    return type;
+                // If the chunk is absent, the cached section above will remain null, as there is no chunk section anyways.
+                // An empty chunk or section will never pose any danger sources, which will be caught later.
+                if (chunk != null) {
+                    section = chunk.getSectionArray()[y >> 4];
                 }
+            }
+
+            // If we can guarantee that blocks won't be modified while the cache is active, try to see if the chunk
+            // section is empty or contains any dangerous blocks within the palette. If not, we can assume any checks
+            // against this chunk section will always fail, allowing us to fast-exit.
+            if (ChunkSection.isEmpty(section) || LandPathNodeCache.isSectionSafeAsNeighbor(section)) {
+                return type;
             }
         }
 

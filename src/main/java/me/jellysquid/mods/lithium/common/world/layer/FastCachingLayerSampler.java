@@ -1,7 +1,6 @@
 package me.jellysquid.mods.lithium.common.world.layer;
 
 import it.unimi.dsi.fastutil.HashCommon;
-import it.unimi.dsi.fastutil.longs.Long2IntLinkedOpenHashMap;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.biome.layer.util.CachingLayerSampler;
@@ -14,7 +13,7 @@ import java.util.Arrays;
  * This is where the main advantage in this implementation comes from: being lossy, the cache does not have to
  * clean up old entries, it does not ever have to reallocate, and the cached value will always be in the first place
  * it checks.
- *
+ * <p>
  * It is important to note however that this is not thread-safe: accessing it from multiple threads can result in wrong
  * values being returned. This implementation works in complement with a patch to the BiomeLayerSampler that initializes
  * the biome layer stack within a thread-local
@@ -26,7 +25,7 @@ public final class FastCachingLayerSampler extends CachingLayerSampler {
     private final int mask;
 
     public FastCachingLayerSampler(int capacity, LayerOperator operator) {
-        super(new Long2IntLinkedOpenHashMap(0), 0, operator);
+        super(null, capacity, operator);
 
         capacity = MathHelper.smallestEncompassingPowerOfTwo(capacity);
         this.mask = capacity - 1;
