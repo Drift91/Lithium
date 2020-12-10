@@ -65,6 +65,7 @@ public class LithiumConfig {
         this.addMixinRule("entity.data_tracker", true);
         this.addMixinRule("entity.fast_suffocation_check", true);
         this.addMixinRule("entity.gravity_check_block_below", true);
+        this.addMixinRule("entity.inactive_navigations", true);
         this.addMixinRule("entity.replace_entitytype_predicates", true);
         this.addMixinRule("entity.skip_fire_check", true);
         this.addMixinRule("entity.stream_entity_collisions_lazily", true);
@@ -72,6 +73,7 @@ public class LithiumConfig {
         this.addMixinRule("gen", true);
         this.addMixinRule("gen.biome_noise_cache", true);
         this.addMixinRule("gen.chunk_region", true);
+        this.addMixinRule("gen.fast_island_noise", true);
         this.addMixinRule("gen.fast_layer_sampling", true);
         this.addMixinRule("gen.fast_multi_source_biomes", true);
         this.addMixinRule("gen.fast_noise_interpolation", true);
@@ -91,14 +93,13 @@ public class LithiumConfig {
         this.addMixinRule("tag", true);
 
         this.addMixinRule("world", true);
-        this.addMixinRule("world.block_entity_ticking", false /* TODO: fix remaining issues */);
+        this.addMixinRule("world.block_entity_ticking", true);
         this.addMixinRule("world.chunk_access", true);
         this.addMixinRule("world.chunk_inline_block_access", true);
         this.addMixinRule("world.chunk_task_system", true);
         this.addMixinRule("world.chunk_tickets", true);
         this.addMixinRule("world.chunk_ticking", true);
         this.addMixinRule("world.explosions", true);
-        this.addMixinRule("world.fast_island_noise", true);
         this.addMixinRule("world.mob_spawning", true);
         this.addMixinRule("world.player_chunk_tick", true);
         this.addMixinRule("world.tick_scheduler", true);
