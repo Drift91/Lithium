@@ -99,7 +99,8 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
 
     @Override
     public List<ScheduledTick<T>> getScheduledTicksInChunk(ChunkPos chunkPos, boolean mutates, boolean getStaleTicks) {
-        BlockBox box = new BlockBox(chunkPos.getStartX() - 2, chunkPos.getStartZ() - 2, chunkPos.getEndX() + 2, chunkPos.getEndZ() + 2);
+        BlockBox box = new BlockBox(chunkPos.getStartX() - 2, 0, chunkPos.getStartZ() - 2,
+                chunkPos.getEndX() + 2, 256, chunkPos.getEndZ() + 2);
 
         return this.getScheduledTicks(box, mutates, getStaleTicks);
     }
@@ -244,14 +245,14 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
         this.executingTicks.clear();
     }
 
-    private List<ScheduledTick<T>> collectTicks(BlockBox box, boolean remove, Predicate<TickEntry<?>> predicate) {
+    private List<ScheduledTick<T>> collectTicks(BlockBox bounds, boolean remove, Predicate<TickEntry<?>> predicate) {
         List<ScheduledTick<T>> ret = new ArrayList<>();
 
-        int minChunkX = box.minX >> 4;
-        int maxChunkX = box.maxX >> 4;
+        int minChunkX = bounds.minX >> 4;
+        int maxChunkX = bounds.maxX >> 4;
 
-        int minChunkZ = box.minZ >> 4;
-        int maxChunkZ = box.maxZ >> 4;
+        int minChunkZ = bounds.minZ >> 4;
+        int maxChunkZ = bounds.maxZ >> 4;
 
         // Iterate over all chunks encompassed by the block box
         for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
@@ -265,11 +266,16 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
                 }
 
                 for (TickEntry<T> tick : set) {
-                    if (!box.contains(tick.pos) || !predicate.test(tick)) {
-                        continue;
-                    }
+                    BlockPos pos = tick.pos;
 
-                    ret.add(tick);
+                    // [VanillaCopy] ServerTickScheduler#transferTickInBounds
+                    // The minimum coordinate is include while the maximum coordinate is exclusive
+                    // Possibly a bug in vanilla, but we need to match it here.
+                    if (pos.getX() >= bounds.minX && pos.getX() < bounds.maxX && pos.getZ() >= bounds.minZ && pos.getZ() < bounds.maxZ) {
+                        if (predicate.test(tick)) {
+                            ret.add(tick);
+                        }
+                    }
                 }
             }
         }

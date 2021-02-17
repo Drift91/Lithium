@@ -31,8 +31,11 @@ public class LithiumConfig {
         this.addMixinRule("ai", true);
         this.addMixinRule("ai.goal", true);
         this.addMixinRule("ai.nearby_entity_tracking", true);
+        this.addMixinRule("ai.nearby_entity_tracking.goals", true);
         this.addMixinRule("ai.pathing", true);
         this.addMixinRule("ai.poi", true);
+        this.addMixinRule("ai.poi.fast_init", true);
+        this.addMixinRule("ai.poi.fast_retrieval", true);
         this.addMixinRule("ai.raid", true);
         this.addMixinRule("ai.task", true);
 
@@ -42,10 +45,12 @@ public class LithiumConfig {
         this.addMixinRule("alloc.composter", true);
         this.addMixinRule("alloc.entity_tracker", true);
         this.addMixinRule("alloc.enum_values", true);
+        this.addMixinRule("alloc.explosion_behavior", true);
         this.addMixinRule("alloc.world_ticking", true);
 
         this.addMixinRule("block", true);
         this.addMixinRule("block.flatten_states", true);
+        this.addMixinRule("block.moving_block_shapes", true);
 
         this.addMixinRule("cached_hashcode", true);
 
@@ -54,15 +59,17 @@ public class LithiumConfig {
         this.addMixinRule("chunk.entity_class_groups", true);
         this.addMixinRule("chunk.no_locking", true);
         this.addMixinRule("chunk.palette", true);
+        this.addMixinRule("chunk.section_update_tracking", true);
         this.addMixinRule("chunk.serialization", true);
 
         this.addMixinRule("collections", true);
         this.addMixinRule("collections.entity_filtering", true);
 
         this.addMixinRule("entity", true);
-        this.addMixinRule("entity.block_cache", true);
         this.addMixinRule("entity.collisions", true);
         this.addMixinRule("entity.data_tracker", true);
+        this.addMixinRule("entity.data_tracker.no_locks", true);
+        this.addMixinRule("entity.data_tracker.use_arrays", true);
         this.addMixinRule("entity.fast_suffocation_check", true);
         this.addMixinRule("entity.gravity_check_block_below", true);
         this.addMixinRule("entity.inactive_navigations", true);
@@ -72,6 +79,7 @@ public class LithiumConfig {
 
         this.addMixinRule("gen", true);
         this.addMixinRule("gen.biome_noise_cache", true);
+        this.addMixinRule("gen.cached_generator_settings", true);
         this.addMixinRule("gen.chunk_region", true);
         this.addMixinRule("gen.fast_island_noise", true);
         this.addMixinRule("gen.fast_layer_sampling", true);
@@ -82,10 +90,14 @@ public class LithiumConfig {
         this.addMixinRule("gen.voronoi_biomes", true);
 
         this.addMixinRule("math", true);
+        this.addMixinRule("math.fast_blockpos", true);
         this.addMixinRule("math.fast_util", true);
+        this.addMixinRule("math.sine_lut", true);
 
         this.addMixinRule("shapes", true);
         this.addMixinRule("shapes.blockstate_cache", true);
+        this.addMixinRule("shapes.lazy_shape_context", true);
+        this.addMixinRule("shapes.optimized_matching", true);
         this.addMixinRule("shapes.precompute_shape_arrays", true);
         this.addMixinRule("shapes.shape_merging", true);
         this.addMixinRule("shapes.specialized_shapes", true);
@@ -229,26 +241,26 @@ public class LithiumConfig {
      * created. The file on disk will then be updated to include any new options.
      */
     public static LithiumConfig load(File file) {
-        if (!file.exists()) {
+        LithiumConfig config = new LithiumConfig();
+
+        if (file.exists()) {
+            Properties props = new Properties();
+
+            try (FileInputStream fin = new FileInputStream(file)) {
+                props.load(fin);
+            } catch (IOException e) {
+                throw new RuntimeException("Could not load config file", e);
+            }
+
+            config.readProperties(props);
+        } else {
             try {
                 writeDefaultConfig(file);
             } catch (IOException e) {
                 LOGGER.warn("Could not write default configuration file", e);
             }
-
-            return new LithiumConfig();
         }
 
-        Properties props = new Properties();
-
-        try (FileInputStream fin = new FileInputStream(file)) {
-            props.load(fin);
-        } catch (IOException e) {
-            throw new RuntimeException("Could not load config file", e);
-        }
-
-        LithiumConfig config = new LithiumConfig();
-        config.readProperties(props);
         config.applyModOverrides();
 
         return config;
