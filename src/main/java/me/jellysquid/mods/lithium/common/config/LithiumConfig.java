@@ -106,6 +106,10 @@ public class LithiumConfig {
 
         this.addMixinRule("world", true);
         this.addMixinRule("world.block_entity_ticking", true);
+        this.addMixinRule("world.block_entity_ticking.collections", true);
+        this.addMixinRule("world.block_entity_ticking.should_tick_cache", true);
+        this.addMixinRule("world.block_entity_ticking.sleeping", true);
+        this.addMixinRule("world.block_entity_ticking.support_cache", true);
         this.addMixinRule("world.chunk_access", true);
         this.addMixinRule("world.chunk_inline_block_access", true);
         this.addMixinRule("world.chunk_task_system", true);
@@ -279,6 +283,7 @@ public class LithiumConfig {
 
         try (Writer writer = new FileWriter(file)) {
             writer.write("# This is the configuration file for Lithium.\n");
+            writer.write("# This file exists for debugging purposes and should not be configured otherwise.\n");
             writer.write("#\n");
             writer.write("# You can find information on editing this file and all the available options here:\n");
             writer.write("# https://github.com/jellysquid3/lithium-fabric/wiki/Configuration-File\n");
