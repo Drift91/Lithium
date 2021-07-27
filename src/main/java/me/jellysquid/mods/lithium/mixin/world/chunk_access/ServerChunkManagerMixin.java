@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
  * - Lambdas are replaced where possible to use simple if-else logic, avoiding allocations and variable captures.
  * - The chunk retrieval logic does not try to begin executing other tasks while blocked unless the future isn't
  * already complete.
- * - The fallback "wrong-thread" handler is removed as no code makes use of it.
  * <p>
  * There are also some organizational and differences which help the JVM to better optimize code here, most of which
  * are documented.
@@ -58,14 +57,14 @@ public abstract class ServerChunkManagerMixin {
     protected abstract ChunkHolder getChunkHolder(long pos);
 
     @Shadow
-    protected abstract boolean tick();
+    @Final
+    Thread serverThread;
 
     @Shadow
     protected abstract boolean isMissingForLevel(ChunkHolder holder, int maxLevel);
 
     @Shadow
-    @Final
-    private Thread serverThread;
+    abstract boolean tick();
     private long time;
 
     @Inject(method = "tick()Z", at = @At("HEAD"))
@@ -188,7 +187,7 @@ public abstract class ServerChunkManagerMixin {
                 CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> mergedFuture = this.threadedAnvilChunkStorage.getChunk(holder, status);
 
                 // Add this future to the chunk holder so subsequent calls will see it
-                holder.combineSavingFuture(mergedFuture);
+                holder.combineSavingFuture(mergedFuture, "schedule chunk status");
                 ((ChunkHolderExtended) holder).setFutureForStatus(status.getIndex(), mergedFuture);
 
                 loadFuture = mergedFuture;
@@ -254,7 +253,7 @@ public abstract class ServerChunkManagerMixin {
     /**
      * Reset our own caches whenever vanilla does the same
      */
-    @Inject(method = "initChunkCaches", at = @At("HEAD"))
+    @Inject(method = "initChunkCaches()V", at = @At("HEAD"))
     private void onCachesCleared(CallbackInfo ci) {
         Arrays.fill(this.cacheKeys, Long.MAX_VALUE);
         Arrays.fill(this.cacheChunks, null);

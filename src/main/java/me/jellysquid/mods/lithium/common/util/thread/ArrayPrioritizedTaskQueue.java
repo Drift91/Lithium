@@ -58,4 +58,9 @@ public class ArrayPrioritizedTaskQueue implements TaskQueue<TaskQueue.Prioritize
     public boolean isEmpty() {
         return this.size.get() <= 0;
     }
+
+    @Override
+    public int getSize() {
+        return this.size.get();
+    }
 }

@@ -2,6 +2,7 @@ package me.jellysquid.mods.lithium.mixin.world.explosions;
 
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import me.jellysquid.mods.lithium.common.util.Pos;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
@@ -74,17 +75,22 @@ public abstract class ExplosionMixin {
      */
     private boolean explodeAirBlocks;
 
+    private int minY, maxY;
+
     @Inject(
             method = "<init>(Lnet/minecraft/world/World;Lnet/minecraft/entity/Entity;Lnet/minecraft/entity/damage/DamageSource;Lnet/minecraft/world/explosion/ExplosionBehavior;DDDFZLnet/minecraft/world/explosion/Explosion$DestructionType;)V",
             at = @At("TAIL")
     )
     private void init(World world, Entity entity, DamageSource damageSource, ExplosionBehavior explosionBehavior, double d, double e, double f, float g, boolean bl, Explosion.DestructionType destructionType, CallbackInfo ci) {
+        this.minY = this.world.getBottomY();
+        this.maxY = this.world.getTopY();
+
         boolean explodeAir = this.createFire; // air blocks are only relevant for the explosion when fire should be created inside them
         if (!explodeAir && this.world.getDimension().hasEnderDragonFight()) {
             float overestimatedExplosionRange = (8 + (int) (6f * this.power));
             int endPortalX = 0;
             int endPortalZ = 0;
-            if(overestimatedExplosionRange > Math.abs(this.x - endPortalX) && overestimatedExplosionRange > Math.abs(this.z - endPortalZ)) {
+            if (overestimatedExplosionRange > Math.abs(this.x - endPortalX) && overestimatedExplosionRange > Math.abs(this.z - endPortalZ)) {
                 explodeAir = true;
                 // exploding air works around accidentally fixing vanilla bug: an explosion cancelling the dragon fight start can destroy the newly placed end portal
             }
@@ -93,15 +99,15 @@ public abstract class ExplosionMixin {
     }
 
     @Redirect(
-            method = "collectBlocksAndDamageEntities",
-            at = @At(value = "INVOKE", target = "Lcom/google/common/collect/Sets;newHashSet()Ljava/util/HashSet;")
+            method = "collectBlocksAndDamageEntities()V",
+            at = @At(value = "INVOKE", target = "Lcom/google/common/collect/Sets;newHashSet()Ljava/util/HashSet;", remap = false)
     )
     public HashSet<BlockPos> skipNewHashSet() {
         return null;
     }
 
     @ModifyConstant(
-            method = "collectBlocksAndDamageEntities",
+            method = "collectBlocksAndDamageEntities()V",
             constant = @Constant(intValue = 16, ordinal = 1)
     )
     public int skipLoop(int prevValue) {
@@ -111,7 +117,7 @@ public abstract class ExplosionMixin {
     /**
      * @author JellySquid
      */
-    @Redirect(method = "collectBlocksAndDamageEntities",
+    @Redirect(method = "collectBlocksAndDamageEntities()V",
             at = @At(value = "INVOKE", target = "Ljava/util/List;addAll(Ljava/util/Collection;)Z"))
     public boolean collectBlocks(List<BlockPos> affectedBlocks, Collection<BlockPos> collection) {
         // Using integer encoding for the block positions provides a massive speedup and prevents us from needing to
@@ -175,6 +181,9 @@ public abstract class ExplosionMixin {
 
         float prevResistance = 0.0F;
 
+        int boundMinY = this.minY;
+        int boundMaxY = this.maxY;
+
         // Step through the ray until it is finally stopped
         while (strength > 0.0F) {
             int blockX = MathHelper.floor(stepX);
@@ -188,6 +197,9 @@ public abstract class ExplosionMixin {
             // aliasing and sampling, which is unacceptable for our purposes. As a band-aid, we can simply re-use the
             // previous result and get a decent boost.
             if (prevX != blockX || prevY != blockY || prevZ != blockZ) {
+                if (blockY < boundMinY || blockY >= boundMaxY || blockX < -30000000 || blockZ < -30000000 || blockX >= 30000000 || blockZ >= 30000000) {
+                    return;
+                }
                 resistance = this.traverseBlock(strength, blockX, blockY, blockZ, touched);
 
                 prevX = blockX;
@@ -222,7 +234,7 @@ public abstract class ExplosionMixin {
         BlockPos pos = this.cachedPos.set(blockX, blockY, blockZ);
 
         // Early-exit if the y-coordinate is out of bounds.
-        if (World.isOutOfBuildLimitVertically(blockY)) {
+        if (this.world.isOutOfHeightLimit(blockY)) {
             Optional<Float> blastResistance = this.behavior.getBlastResistance((Explosion) (Object) this, this.world, pos, Blocks.AIR.getDefaultState(), Fluids.EMPTY.getDefaultState());
             //noinspection OptionalIsPresent
             if (blastResistance.isPresent()) {
@@ -232,8 +244,8 @@ public abstract class ExplosionMixin {
         }
 
 
-        int chunkX = blockX >> 4;
-        int chunkZ = blockZ >> 4;
+        int chunkX = Pos.ChunkCoord.fromBlockCoord(blockX);
+        int chunkZ = Pos.ChunkCoord.fromBlockCoord(blockZ);
 
         // Avoid calling into the chunk manager as much as possible through managing chunks locally
         if (this.prevChunkX != chunkX || this.prevChunkZ != chunkZ) {
@@ -255,7 +267,7 @@ public abstract class ExplosionMixin {
             if (chunk != null) {
                 // We operate directly on chunk sections to avoid interacting with BlockPos and to squeeze out as much
                 // performance as possible here
-                ChunkSection section = chunk.getSectionArray()[blockY >> 4];
+                ChunkSection section = chunk.getSectionArray()[Pos.SectionYIndex.fromBlockCoord(chunk, blockY)];
 
                 // If the section doesn't exist or it's empty, assume that the block is air
                 if (section != null && !section.isEmpty()) {

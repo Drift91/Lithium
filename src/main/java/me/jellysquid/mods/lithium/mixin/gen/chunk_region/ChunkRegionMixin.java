@@ -1,5 +1,6 @@
 package me.jellysquid.mods.lithium.mixin.gen.chunk_region;
 
+import me.jellysquid.mods.lithium.common.util.Pos;
 import net.minecraft.block.BlockState;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
@@ -7,6 +8,7 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.StructureWorldAccess;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkStatus;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -36,8 +38,8 @@ public abstract class ChunkRegionMixin implements StructureWorldAccess {
     /**
      * @author JellySquid
      */
-    @Inject(method = "<init>", at = @At("RETURN"))
-    private void init(ServerWorld world, List<Chunk> chunks, CallbackInfo ci) {
+    @Inject(method = "<init>(Lnet/minecraft/server/world/ServerWorld;Ljava/util/List;Lnet/minecraft/world/chunk/ChunkStatus;I)V", at = @At("RETURN"))
+    private void init(ServerWorld world, List<Chunk> chunks, ChunkStatus chunkStatus, int i, CallbackInfo ci) {
         this.minChunkX = this.lowerCorner.x;
         this.minChunkZ = this.lowerCorner.z;
 
@@ -50,8 +52,8 @@ public abstract class ChunkRegionMixin implements StructureWorldAccess {
      */
     @Overwrite
     public BlockState getBlockState(BlockPos pos) {
-        int x = (pos.getX() >> 4) - this.minChunkX;
-        int z = (pos.getZ() >> 4) - this.minChunkZ;
+        int x = (Pos.ChunkCoord.fromBlockCoord(pos.getX())) - this.minChunkX;
+        int z = (Pos.ChunkCoord.fromBlockCoord(pos.getZ())) - this.minChunkZ;
         int w = this.width;
 
         if (x >= 0 && z >= 0 && x < w && z < w) {
@@ -83,6 +85,6 @@ public abstract class ChunkRegionMixin implements StructureWorldAccess {
      */
     public Chunk getChunk(BlockPos pos) {
         // Skip checking chunk.getStatus().isAtLeast(ChunkStatus.EMPTY) here, because it is always true
-        return this.getChunk(pos.getX() >> 4, pos.getZ() >> 4);
+        return this.getChunk(Pos.ChunkCoord.fromBlockCoord(pos.getX()), Pos.ChunkCoord.fromBlockCoord(pos.getZ()));
     }
 }

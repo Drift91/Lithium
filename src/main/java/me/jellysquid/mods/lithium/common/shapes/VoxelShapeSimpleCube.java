@@ -165,10 +165,6 @@ public class VoxelShapeSimpleCube extends VoxelShape implements VoxelShapeCaster
         throw new IllegalArgumentException();
     }
 
-    @Override
-    protected boolean contains(double x, double y, double z) {
-        return (x >= this.minX) && (x < this.maxX) && (y >= this.minY) && (y < this.maxY) && (z >= this.minZ) && (z < this.maxZ);
-    }
 
     @Override
     public boolean isEmpty() {

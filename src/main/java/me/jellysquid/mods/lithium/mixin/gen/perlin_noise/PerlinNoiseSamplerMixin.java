@@ -1,8 +1,8 @@
 package me.jellysquid.mods.lithium.mixin.gen.perlin_noise;
 
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.noise.PerlinNoiseSampler;
 import net.minecraft.util.math.noise.SimplexNoiseSampler;
+import net.minecraft.world.gen.WorldGenRandom;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -11,17 +11,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.Random;
 
 @Mixin(PerlinNoiseSampler.class)
-public class PerlinNoiseSamplerMixin {
+public abstract class PerlinNoiseSamplerMixin {
     private static final int GRADIENT_STRIDE = 4;
     private static final int GRADIENT_STRIDE_SH = 2;
-
-    @Shadow
-    @Final
-    private byte[] permutations;
-
+    private final byte[] gradientTable = new byte[256 * GRADIENT_STRIDE];
     @Shadow
     @Final
     public double originX;
@@ -33,16 +28,18 @@ public class PerlinNoiseSamplerMixin {
     @Shadow
     @Final
     public double originZ;
+    @Shadow
+    @Final
+    private byte[] permutations;
 
-    private final byte[] gradientTable = new byte[256 * GRADIENT_STRIDE];
-
-    @Inject(method = "<init>", at = @At("RETURN"))
-    private void reinit(Random random, CallbackInfo ci) {
+    @Inject(method = "<init>(Lnet/minecraft/world/gen/WorldGenRandom;)V", at = @At("RETURN"))
+    private void reinit(WorldGenRandom random, CallbackInfo ci) {
         for (int i = 0; i < 256; i++) {
             int hash = this.permutations[i & 255] & 15;
 
             for (int j = 0; j < 3; j++) {
-                this.gradientTable[(i * GRADIENT_STRIDE) + j] = (byte) SimplexNoiseSampler.gradients[hash][j];
+                //Note: addressing the gradient table later is supposed to be done with the non hashed keys
+                this.gradientTable[(i * GRADIENT_STRIDE) + j] = (byte) SimplexNoiseSampler.GRADIENTS[hash][j];
             }
         }
     }
@@ -51,8 +48,9 @@ public class PerlinNoiseSamplerMixin {
      * @reason Remove frequent type conversions
      * @author JellySquid
      */
+    @Deprecated
     @Overwrite
-    public double sample(double x, double y, double z, double d, double e) {
+    public double sample(double x, double y, double z, double yScale, double yMax) {
         final double ox = x + this.originX;
         final double oy = y + this.originY;
         final double oz = z + this.originZ;
@@ -65,15 +63,18 @@ public class PerlinNoiseSamplerMixin {
         double ooy = oy - foy;
         double ooz = oz - foz;
 
-        final double fx = MathHelper.perlinFade(oox);
-        final double fy = MathHelper.perlinFade(ooy);
-        final double fz = MathHelper.perlinFade(ooz);
-
-        if (d != 0.0D) {
-            ooy = ooy - (Math.floor(Math.min(e, ooy) / d) * d);
+        double poy = 0.0D;
+        if (yScale != 0.0) {
+            double yMaxAdj;
+            if ((yMax >= 0.0) && (yMax < ooy)) {
+                yMaxAdj = yMax;
+            } else {
+                yMaxAdj = ooy;
+            }
+            poy = Math.floor((yMaxAdj / yScale) + 1.0000000116860974E-7D) * yScale;
         }
 
-        return this.sample((int) fox, (int) foy, (int) foz, oox, ooy, ooz, fx, fy, fz);
+        return this.sample((int) fox, (int) foy, (int) foz, oox, ooy - poy, ooz, ooy);
     }
 
     /**
@@ -87,13 +88,13 @@ public class PerlinNoiseSamplerMixin {
      * @author JellySquid
      */
     @Overwrite
-    public double sample(int sectionX, int sectionY, int sectionZ, double localX1, double localY1, double localZ1, double fadeLocalX, double fadeLocalY, double fadeLocalZ) {
+    private double sample(int sectionX, int sectionY, int sectionZ, double localX1, double localY1, double localZ1, double unmappedVar) {
         final byte[] perm = this.permutations;
 
         final int i = (perm[sectionX & 255] & 255) + sectionY;
         final int l = (perm[(sectionX + 1) & 255] & 255) + sectionY;
 
-        final int j = (perm[255 & i] & 255) + sectionZ;
+        final int j = (perm[i & 255] & 255) + sectionZ;
         final int m = (perm[l & 255] & 255) + sectionZ;
 
         final int k = (perm[(i + 1) & 255] & 255) + sectionZ;
@@ -160,6 +161,10 @@ public class PerlinNoiseSamplerMixin {
         final double ba2 = g11 - g10;
         final double dc1 = g03 - g02;
         final double dc2 = g13 - g12;
+
+        final double fadeLocalX = localX1 * localX1 * localX1 * ((localX1 * ((localX1 * 6.0D) - 15.0D)) + 10.0D);
+        final double fadeLocalY = unmappedVar * unmappedVar * unmappedVar * ((unmappedVar * ((unmappedVar * 6.0D) - 15.0D)) + 10.0D);
+        final double fadeLocalZ = localZ1 * localZ1 * localZ1 * ((localZ1 * ((localZ1 * 6.0D) - 15.0D)) + 10.0D);
 
         final double dba1 = fadeLocalX * ba1;
         final double dba2 = fadeLocalX * ba2;

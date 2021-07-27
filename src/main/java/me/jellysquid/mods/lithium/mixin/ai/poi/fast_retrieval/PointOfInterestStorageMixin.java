@@ -3,11 +3,14 @@ package me.jellysquid.mods.lithium.mixin.ai.poi.fast_retrieval;
 import com.mojang.datafixers.DataFixer;
 import com.mojang.serialization.Codec;
 import me.jellysquid.mods.lithium.common.util.Collector;
+import me.jellysquid.mods.lithium.common.util.Pos;
 import me.jellysquid.mods.lithium.common.world.interests.PointOfInterestCollectors;
 import me.jellysquid.mods.lithium.common.world.interests.RegionBasedStorageSectionAccess;
 import net.minecraft.datafixer.DataFixTypes;
+import net.minecraft.util.annotation.Debug;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.HeightLimitView;
 import net.minecraft.world.poi.PointOfInterest;
 import net.minecraft.world.poi.PointOfInterestSet;
 import net.minecraft.world.poi.PointOfInterestStorage;
@@ -24,14 +27,15 @@ import java.util.stream.Stream;
 
 @Mixin(PointOfInterestStorage.class)
 public abstract class PointOfInterestStorageMixin extends SerializingRegionBasedStorage<PointOfInterestSet> {
-    public PointOfInterestStorageMixin(File directory, Function<Runnable, Codec<PointOfInterestSet>> function, Function<Runnable, PointOfInterestSet> function2, DataFixer dataFixer, DataFixTypes dataFixTypes, boolean bl) {
-        super(directory, function, function2, dataFixer, dataFixTypes, bl);
+    public PointOfInterestStorageMixin(File directory, Function<Runnable, Codec<PointOfInterestSet>> codecFactory, Function<Runnable, PointOfInterestSet> factory, DataFixer dataFixer, DataFixTypes dataFixTypes, boolean dsync, HeightLimitView world) {
+        super(directory, codecFactory, factory, dataFixer, dataFixTypes, dsync, world);
     }
 
     /**
      * @reason Retrieve all points of interest in one operation
      * @author JellySquid
      */
+    @Debug
     @SuppressWarnings("unchecked")
     @Overwrite
     public Stream<PointOfInterest> getInChunk(Predicate<PointOfInterestType> predicate, ChunkPos pos, PointOfInterestStorage.OccupationStatus status) {
@@ -103,11 +107,11 @@ public abstract class PointOfInterestStorageMixin extends SerializingRegionBased
         Collector<PointOfInterest> filter = PointOfInterestCollectors.collectAllWithinRadius(pos, radius, collector);
         Collector<PointOfInterestSet> consumer = PointOfInterestCollectors.collectAllMatching(predicate, status, filter);
 
-        int minChunkX = (pos.getX() - radius - 1) >> 4;
-        int minChunkZ = (pos.getZ() - radius - 1) >> 4;
+        int minChunkX = Pos.ChunkCoord.fromBlockCoord((pos.getX() - radius - 1));
+        int minChunkZ = Pos.ChunkCoord.fromBlockCoord((pos.getZ() - radius - 1));
 
-        int maxChunkX = (pos.getX() + radius + 1) >> 4;
-        int maxChunkZ = (pos.getZ() + radius + 1) >> 4;
+        int maxChunkX = Pos.ChunkCoord.fromBlockCoord((pos.getX() + radius + 1));
+        int maxChunkZ = Pos.ChunkCoord.fromBlockCoord((pos.getZ() + radius + 1));
 
         // noinspection unchecked
         RegionBasedStorageSectionAccess<PointOfInterestSet> storage = ((RegionBasedStorageSectionAccess<PointOfInterestSet>) this);

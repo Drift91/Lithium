@@ -1,6 +1,7 @@
 package me.jellysquid.mods.lithium.mixin.ai.pathing;
 
 import me.jellysquid.mods.lithium.common.ai.pathing.PathNodeCache;
+import me.jellysquid.mods.lithium.common.util.Pos;
 import me.jellysquid.mods.lithium.common.world.WorldHelper;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.ai.pathing.LandPathNodeMaker;
@@ -9,7 +10,6 @@ import net.minecraft.entity.ai.pathing.PathNodeType;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.CollisionView;
-import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,7 +34,7 @@ public abstract class LandPathNodeMakerMixin {
 
         // If the node type is open, it means that we were unable to determine a more specific type, so we need
         // to check the fallback path.
-        if (type == PathNodeType.OPEN) {
+        if (type == PathNodeType.OPEN || type == PathNodeType.WATER) {
             // This is only ever called in vanilla after all other possibilities are exhausted, but before fluid checks
             // It should be safe to perform it last in actuality and take advantage of the cache for fluid types as well
             // since fluids will always pass this check.
@@ -43,7 +43,7 @@ public abstract class LandPathNodeMakerMixin {
             }
 
             // All checks succeed, this path node really is open!
-            return PathNodeType.OPEN;
+            return type;
         }
 
         // Return the cached value since we found an obstacle earlier
@@ -67,14 +67,14 @@ public abstract class LandPathNodeMakerMixin {
         if (world instanceof CollisionView && WorldHelper.areNeighborsWithinSameChunk(pos)) {
             // If the y-coordinate is within bounds, we can cache the chunk section. Otherwise, the if statement to check
             // if the cached chunk section was initialized will early-exit.
-            if (!World.isOutOfBuildLimitVertically(y)) {
+            if (!world.isOutOfHeightLimit(y)) { //todo use cached values for height limit
                 // This cast is always safe and is necessary to obtain direct references to chunk sections.
-                Chunk chunk = (Chunk) ((CollisionView) world).getExistingChunk(x >> 4, z >> 4);
+                Chunk chunk = (Chunk) ((CollisionView) world).getChunkAsView(Pos.ChunkCoord.fromBlockCoord(x), Pos.ChunkCoord.fromBlockCoord(z));
 
                 // If the chunk is absent, the cached section above will remain null, as there is no chunk section anyways.
                 // An empty chunk or section will never pose any danger sources, which will be caught later.
                 if (chunk != null) {
-                    section = chunk.getSectionArray()[y >> 4];
+                    section = chunk.getSectionArray()[Pos.SectionYIndex.fromBlockCoord(world, y)];
                 }
             }
 

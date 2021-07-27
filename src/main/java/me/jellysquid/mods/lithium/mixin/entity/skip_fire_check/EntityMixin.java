@@ -19,19 +19,28 @@ public abstract class EntityMixin {
     @Shadow
     protected abstract int getBurningDuration();
 
+    @Shadow
+    public boolean wasOnFire;
+
+    @Shadow
+    public boolean inPowderSnow;
+
+    @Shadow
+    public abstract boolean isWet();
+
     @Redirect(
-            method = "move",
+            method = "move(Lnet/minecraft/entity/MovementType;Lnet/minecraft/util/math/Vec3d;)V",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/world/World;method_29556(Lnet/minecraft/util/math/Box;)Ljava/util/stream/Stream;"
+                    target = "Lnet/minecraft/world/World;getStatesInBoxIfLoaded(Lnet/minecraft/util/math/Box;)Ljava/util/stream/Stream;"
             )
     )
     private Stream<BlockState> skipFireTestIfResultDoesNotMatter(World world, Box box) {
         // Skip scanning the blocks around the entity touches by returning an empty stream when the result does not matter
-        if (this.fireTicks > 0 || this.fireTicks == -this.getBurningDuration()) {
+        if ((this.fireTicks > 0 || this.fireTicks == -this.getBurningDuration()) && (!this.wasOnFire || !this.inPowderSnow && !this.isWet())) {
             return Stream.empty();
         }
 
-        return world.method_29556(box);
+        return world.getStatesInBoxIfLoaded(box);
     }
 }

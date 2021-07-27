@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectAVLTreeMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectSortedMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.minecraft.server.world.ServerChunkManager;
+import me.jellysquid.mods.lithium.common.util.Pos;
 import net.minecraft.server.world.ServerTickScheduler;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
@@ -66,7 +66,7 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
     public void tick() {
         this.world.getProfiler().push("cleaning");
 
-        this.selectTicks(this.world.getChunkManager(), this.world.getTime());
+        this.selectTicks(this.world, this.world.getTime());
 
         this.world.getProfiler().swap("executing");
 
@@ -99,8 +99,8 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
 
     @Override
     public List<ScheduledTick<T>> getScheduledTicksInChunk(ChunkPos chunkPos, boolean mutates, boolean getStaleTicks) {
-        BlockBox box = new BlockBox(chunkPos.getStartX() - 2, 0, chunkPos.getStartZ() - 2,
-                chunkPos.getEndX() + 2, 256, chunkPos.getEndZ() + 2);
+        //[VanillaCopy] bug chunk steals ticks from neighboring chunk on unload + does so only in the negative direction
+        BlockBox box = new BlockBox(chunkPos.getStartX() - 2, Integer.MIN_VALUE, chunkPos.getStartZ() - 2, chunkPos.getStartX() + 16, Integer.MAX_VALUE, chunkPos.getStartZ() + 16);
 
         return this.getScheduledTicks(box, mutates, getStaleTicks);
     }
@@ -145,7 +145,7 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
     /**
      * Enqueues all scheduled ticks before the specified time and prepares them for execution.
      */
-    public void selectTicks(ServerChunkManager chunkManager, long time) {
+    public void selectTicks(ServerWorld world, long time) {
         // Calculates the maximum key value which includes all ticks scheduled before the specified time
         long headKey = getBucketKey(time + 1, TickPriority.EXTREMELY_HIGH) - 1;
 
@@ -179,13 +179,13 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
                 // bucket and skip it. This deliberately introduces a bug where backlogged ticks will not be re-scheduled
                 // properly, re-producing the vanilla issue of tick suppression.
                 if (limit > 0) {
-                    long chunk = ChunkPos.toLong(tick.pos.getX() >> 4, tick.pos.getZ() >> 4);
+                    long chunk = ChunkPos.toLong(Pos.ChunkCoord.fromBlockCoord(tick.pos.getX()), Pos.ChunkCoord.fromBlockCoord(tick.pos.getZ()));
 
                     // Take advantage of the fact that if any position in a chunk can be updated, then all other positions
                     // in the same chunk can be updated. This avoids the more expensive check to the chunk manager.
                     if (prevChunk != chunk) {
                         prevChunk = chunk;
-                        canTick = chunkManager.shouldTickBlock(tick.pos);
+                        canTick = this.world.method_37117(tick.pos);
                     }
 
                     // If the tick can be executed right now, then add it to the executing list and decrement our
@@ -234,7 +234,7 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
             } catch (Throwable e) {
                 CrashReport crash = CrashReport.create(e, "Exception while ticking");
                 CrashReportSection section = crash.addElement("Block being ticked");
-                CrashReportSection.addBlockInfo(section, tick.pos, null);
+                CrashReportSection.addBlockInfo(section, this.world, tick.pos, null);
 
                 throw new CrashException(crash);
             }
@@ -248,11 +248,11 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
     private List<ScheduledTick<T>> collectTicks(BlockBox bounds, boolean remove, Predicate<TickEntry<?>> predicate) {
         List<ScheduledTick<T>> ret = new ArrayList<>();
 
-        int minChunkX = bounds.minX >> 4;
-        int maxChunkX = bounds.maxX >> 4;
+        int minChunkX = Pos.ChunkCoord.fromBlockCoord(bounds.getMinX());
+        int maxChunkX = Pos.ChunkCoord.fromBlockCoord(bounds.getMaxX());
 
-        int minChunkZ = bounds.minZ >> 4;
-        int maxChunkZ = bounds.maxZ >> 4;
+        int minChunkZ = Pos.ChunkCoord.fromBlockCoord(bounds.getMinZ());
+        int maxChunkZ = Pos.ChunkCoord.fromBlockCoord(bounds.getMaxZ());
 
         // Iterate over all chunks encompassed by the block box
         for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
@@ -271,7 +271,7 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
                     // [VanillaCopy] ServerTickScheduler#transferTickInBounds
                     // The minimum coordinate is include while the maximum coordinate is exclusive
                     // Possibly a bug in vanilla, but we need to match it here.
-                    if (pos.getX() >= bounds.minX && pos.getX() < bounds.maxX && pos.getZ() >= bounds.minZ && pos.getZ() < bounds.maxZ) {
+                    if (pos.getX() >= bounds.getMinX() && pos.getX() < bounds.getMaxX() && pos.getZ() >= bounds.getMinZ() && pos.getZ() < bounds.getMaxZ()) {
                         if (predicate.test(tick)) {
                             ret.add(tick);
                         }
@@ -331,7 +331,7 @@ public class LithiumServerTickScheduler<T> extends ServerTickScheduler<T> {
 
     // Computes a chunk key from a block position
     private static long getChunkKey(BlockPos pos) {
-        return ChunkPos.toLong(pos.getX() >> 4, pos.getZ() >> 4);
+        return ChunkPos.toLong(Pos.ChunkCoord.fromBlockCoord(pos.getX()), Pos.ChunkCoord.fromBlockCoord(pos.getZ()));
     }
 
     // Computes a timestamped key including the tick's priority

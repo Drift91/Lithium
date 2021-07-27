@@ -1,7 +1,7 @@
 import net.fabricmc.loom.task.RemapJarTask
 
 plugins {
-    id 'fabric-loom' version '0.5-SNAPSHOT'
+    id 'fabric-loom' version '0.8-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -12,8 +12,8 @@ minecraft {
 
 apply plugin: 'fabric-loom'
 
-sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
+sourceCompatibility = JavaVersion.VERSION_16
+targetCompatibility = JavaVersion.VERSION_16
 
 group = project.maven_group
 version = project.mod_version
@@ -45,26 +45,53 @@ sourceSets {
     }
 }
 
+repositories {
+    allprojects {
+        repositories {
+            maven { url 'https://jitpack.io' }
+        }
+    }
+}
+
+loom {
+    runs {
+        testmodServer {
+            runDir("testserver");
+            server()
+            ideConfigGenerated project.rootProject == project
+            source sourceSets.main
+        }
+        autoTestServer {
+            runDir("testserver");
+            inherit testmodServer
+            vmArg "-Dfabric.autoTest"
+        }
+    }
+}
+
+
 dependencies {
     //to change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 
-    modCompile "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation 'com.github.2No2Name:McTester:v0.2.3'
+    modImplementation 'com.github.astei:lazydfu:0.1.2'
 }
 
 processResources {
     inputs.property "version", project.version
 
-    from(sourceSets.main.resources.srcDirs) {
-        include "fabric.mod.json"
-
+    filesMatching("fabric.mod.json") {
         expand "version": project.version
     }
+}
 
-    from(sourceSets.main.resources.srcDirs) {
-        exclude "fabric.mod.json"
-    }
+//make builds reproducible
+tasks.withType(AbstractArchiveTask) {
+    reproducibleFileOrder = true
+    preserveFileTimestamps = false
 }
 
 // ensure that the encoding is set to UTF-8, no matter what the system default is

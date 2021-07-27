@@ -3,10 +3,8 @@ package me.jellysquid.mods.lithium.common.world.chunk;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.collection.IdList;
 import net.minecraft.world.chunk.Palette;
@@ -27,8 +25,8 @@ public class LithiumHashPalette<T> implements Palette<T> {
 
     private final IdList<T> idList;
     private final PaletteResizeListener<T> resizeHandler;
-    private final Function<CompoundTag, T> elementDeserializer;
-    private final Function<T, CompoundTag> elementSerializer;
+    private final Function<NbtCompound, T> elementDeserializer;
+    private final Function<T, NbtCompound> elementSerializer;
     private final int indexBits;
 
     private final Reference2IntMap<T> table;
@@ -36,7 +34,7 @@ public class LithiumHashPalette<T> implements Palette<T> {
     private int size = 0;
 
     @SuppressWarnings("unchecked")
-    public LithiumHashPalette(IdList<T> ids, int bits, PaletteResizeListener<T> resizeHandler, Function<CompoundTag, T> deserializer, Function<T, CompoundTag> serializer) {
+    public LithiumHashPalette(IdList<T> ids, int bits, PaletteResizeListener<T> resizeHandler, Function<NbtCompound, T> deserializer, Function<T, NbtCompound> serializer) {
         this.idList = ids;
         this.indexBits = bits;
         this.resizeHandler = resizeHandler;
@@ -117,7 +115,6 @@ public class LithiumHashPalette<T> implements Palette<T> {
     }
 
     @Override
-    @Environment(EnvType.CLIENT)
     public void fromPacket(PacketByteBuf buf) {
         this.clear();
 
@@ -140,17 +137,22 @@ public class LithiumHashPalette<T> implements Palette<T> {
 
     @Override
     public int getPacketSize() {
-        int size = PacketByteBuf.getVarIntSizeBytes(this.size);
+        int size = PacketByteBuf.getVarIntLength(this.size);
 
         for (int i = 0; i < this.size; ++i) {
-            size += PacketByteBuf.getVarIntSizeBytes(this.idList.getRawId(this.getByIndex(i)));
+            size += PacketByteBuf.getVarIntLength(this.idList.getRawId(this.getByIndex(i)));
         }
 
         return size;
     }
 
     @Override
-    public void fromTag(ListTag list) {
+    public int getIndexBits() {
+        return this.size;
+    }
+
+    @Override
+    public void readNbt(NbtList list) {
         this.clear();
 
         for (int i = 0; i < list.size(); ++i) {
@@ -158,7 +160,7 @@ public class LithiumHashPalette<T> implements Palette<T> {
         }
     }
 
-    public void toTag(ListTag list) {
+    public void toTag(NbtList list) {
         for (int i = 0; i < this.size; ++i) {
             list.add(this.elementSerializer.apply(this.getByIndex(i)));
         }

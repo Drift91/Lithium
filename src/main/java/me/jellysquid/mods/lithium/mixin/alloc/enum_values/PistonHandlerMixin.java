@@ -11,7 +11,7 @@ public class PistonHandlerMixin {
     private static final Direction[] VALUES = Direction.values();
 
     @Redirect(
-            method = "canMoveAdjacentBlock",
+            method = "tryMoveAdjacentBlock(Lnet/minecraft/util/math/BlockPos;)Z",
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/util/math/Direction;values()[Lnet/minecraft/util/math/Direction;"

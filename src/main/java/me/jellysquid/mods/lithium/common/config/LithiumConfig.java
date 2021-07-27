@@ -1,5 +1,6 @@
 package me.jellysquid.mods.lithium.common.config;
 
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.CustomValue;
@@ -12,6 +13,7 @@ import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Documentation of these options: https://github.com/jellysquid3/lithium-fabric/wiki/Configuration-File
@@ -23,12 +25,14 @@ public class LithiumConfig {
     private static final String JSON_KEY_LITHIUM_OPTIONS = "lithium:options";
 
     private final Map<String, Option> options = new HashMap<>();
+    private final Set<Option> optionsWithDependencies = new ObjectLinkedOpenHashSet<>();
 
     private LithiumConfig() {
         // Defines the default rules which can be configured by the user or other mods.
         // You must manually add a rule for any new mixins not covered by an existing package rule.
 
         this.addMixinRule("ai", true);
+        this.addMixinRule("ai.brain", true);
         this.addMixinRule("ai.goal", true);
         this.addMixinRule("ai.nearby_entity_tracking", true);
         this.addMixinRule("ai.nearby_entity_tracking.goals", true);
@@ -38,6 +42,9 @@ public class LithiumConfig {
         this.addMixinRule("ai.poi.fast_retrieval", true);
         this.addMixinRule("ai.raid", true);
         this.addMixinRule("ai.task", true);
+        this.addMixinRule("ai.task.fast_repetition", true);
+        this.addMixinRule("ai.task.goat_jump", true);
+        this.addMixinRule("ai.task.replace_streams", true);
 
         this.addMixinRule("alloc", true);
         this.addMixinRule("alloc.chunk_random", true);
@@ -46,18 +53,19 @@ public class LithiumConfig {
         this.addMixinRule("alloc.entity_tracker", true);
         this.addMixinRule("alloc.enum_values", true);
         this.addMixinRule("alloc.explosion_behavior", true);
-        this.addMixinRule("alloc.world_ticking", true);
 
         this.addMixinRule("block", true);
         this.addMixinRule("block.flatten_states", true);
+        this.addMixinRule("block.hopper", true);
         this.addMixinRule("block.moving_block_shapes", true);
 
         this.addMixinRule("cached_hashcode", true);
 
         this.addMixinRule("chunk", true);
-        this.addMixinRule("chunk.count_oversized_blocks", true);
+        this.addMixinRule("chunk.block_counting", true);
         this.addMixinRule("chunk.entity_class_groups", true);
         this.addMixinRule("chunk.no_locking", true);
+        this.addMixinRule("chunk.no_validation", true);
         this.addMixinRule("chunk.palette", true);
         this.addMixinRule("chunk.section_update_tracking", true);
         this.addMixinRule("chunk.serialization", true);
@@ -70,6 +78,7 @@ public class LithiumConfig {
         this.addMixinRule("entity.data_tracker", true);
         this.addMixinRule("entity.data_tracker.no_locks", true);
         this.addMixinRule("entity.data_tracker.use_arrays", true);
+        this.addMixinRule("entity.fast_retrieval", true);
         this.addMixinRule("entity.fast_suffocation_check", true);
         this.addMixinRule("entity.gravity_check_block_below", true);
         this.addMixinRule("entity.inactive_navigations", true);
@@ -84,10 +93,11 @@ public class LithiumConfig {
         this.addMixinRule("gen.fast_island_noise", true);
         this.addMixinRule("gen.fast_layer_sampling", true);
         this.addMixinRule("gen.fast_multi_source_biomes", true);
-        this.addMixinRule("gen.fast_noise_interpolation", true);
         this.addMixinRule("gen.features", true);
         this.addMixinRule("gen.perlin_noise", true);
         this.addMixinRule("gen.voronoi_biomes", true);
+
+        this.addMixinRule("item", true);
 
         this.addMixinRule("math", true);
         this.addMixinRule("math.fast_blockpos", true);
@@ -105,21 +115,88 @@ public class LithiumConfig {
         this.addMixinRule("tag", true);
 
         this.addMixinRule("world", true);
+        this.addMixinRule("world.block_entity_retrieval", true);
         this.addMixinRule("world.block_entity_ticking", true);
-        this.addMixinRule("world.block_entity_ticking.collections", true);
-        this.addMixinRule("world.block_entity_ticking.should_tick_cache", true);
-        this.addMixinRule("world.block_entity_ticking.sleeping", true);
-        this.addMixinRule("world.block_entity_ticking.support_cache", true);
+        this.addMixinRule("world.block_entity_ticking.support_cache", false); //have to check whether the cached state bugfix fixes any detectable vanilla bugs first
         this.addMixinRule("world.chunk_access", true);
-        this.addMixinRule("world.chunk_inline_block_access", true);
         this.addMixinRule("world.chunk_task_system", true);
         this.addMixinRule("world.chunk_tickets", true);
         this.addMixinRule("world.chunk_ticking", true);
         this.addMixinRule("world.explosions", true);
+        this.addMixinRule("world.inline_block_access", true);
+        this.addMixinRule("world.inline_height", true);
         this.addMixinRule("world.mob_spawning", true);
         this.addMixinRule("world.player_chunk_tick", true);
         this.addMixinRule("world.tick_scheduler", true);
+
+        this.addRuleDependency("block.hopper", "ai", true);
+        this.addRuleDependency("block.hopper", "ai.nearby_entity_tracking", true);
+        this.addRuleDependency("block.hopper", "world", true);
+        this.addRuleDependency("block.hopper", "world.block_entity_retrieval", true);
     }
+
+    /**
+     * Loads the configuration file from the specified location. If it does not exist, a new configuration file will be
+     * created. The file on disk will then be updated to include any new options.
+     */
+    public static LithiumConfig load(File file) {
+        LithiumConfig config = new LithiumConfig();
+
+        if (file.exists()) {
+            Properties props = new Properties();
+
+            try (FileInputStream fin = new FileInputStream(file)) {
+                props.load(fin);
+            } catch (IOException e) {
+                throw new RuntimeException("Could not load config file", e);
+            }
+
+            config.readProperties(props);
+        } else {
+            try {
+                writeDefaultConfig(file);
+            } catch (IOException e) {
+                LOGGER.warn("Could not write default configuration file", e);
+            }
+        }
+
+        config.applyModOverrides();
+
+        // Check dependencies several times, because one iteration may disable a rule required by another rule
+        // This terminates because each additional iteration will disable one or more rules, and there is only a finite number of rules
+        while (config.applyDependencies()) {
+            ;
+        }
+
+        return config;
+    }
+
+    /**
+     * Defines a dependency between two registered mixin rules. If a dependency is not satisfied, the mixin will
+     * be disabled.
+     *
+     * @param rule          the mixin rule that requires another rule to be set to a given value
+     * @param dependency    the mixin rule the given rule depends on
+     * @param requiredValue the required value of the dependency
+     */
+    @SuppressWarnings("SameParameterValue")
+    private void addRuleDependency(String rule, String dependency, boolean requiredValue) {
+        String ruleOptionName = getMixinRuleName(rule);
+        Option option = this.options.get(ruleOptionName);
+        if (option == null) {
+            LOGGER.error("Option {} for dependency '{} depends on {}={}' not found. Skipping.", rule, rule, dependency, requiredValue);
+            return;
+        }
+        String dependencyOptionName = getMixinRuleName(dependency);
+        Option dependencyOption = this.options.get(dependencyOptionName);
+        if (dependencyOption == null) {
+            LOGGER.error("Option {} for dependency '{} depends on {}={}' not found. Skipping.", dependency, rule, dependency, requiredValue);
+            return;
+        }
+        option.addDependency(dependencyOption, requiredValue);
+        this.optionsWithDependencies.add(option);
+    }
+
 
     /**
      * Defines a Mixin rule which can be configured by users and other mods.
@@ -241,33 +318,14 @@ public class LithiumConfig {
     }
 
     /**
-     * Loads the configuration file from the specified location. If it does not exist, a new configuration file will be
-     * created. The file on disk will then be updated to include any new options.
+     * Tests all dependencies and disables options when their dependencies are not met.
      */
-    public static LithiumConfig load(File file) {
-        LithiumConfig config = new LithiumConfig();
-
-        if (file.exists()) {
-            Properties props = new Properties();
-
-            try (FileInputStream fin = new FileInputStream(file)) {
-                props.load(fin);
-            } catch (IOException e) {
-                throw new RuntimeException("Could not load config file", e);
-            }
-
-            config.readProperties(props);
-        } else {
-            try {
-                writeDefaultConfig(file);
-            } catch (IOException e) {
-                LOGGER.warn("Could not write default configuration file", e);
-            }
+    private boolean applyDependencies() {
+        boolean changed = false;
+        for (Option optionWithDependency : this.optionsWithDependencies) {
+            changed |= optionWithDependency.disableIfDependenciesNotMet(LOGGER);
         }
-
-        config.applyModOverrides();
-
-        return config;
+        return changed;
     }
 
     private static void writeDefaultConfig(File file) throws IOException {

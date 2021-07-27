@@ -3,7 +3,6 @@ package me.jellysquid.mods.lithium.mixin.chunk.entity_class_groups;
 import it.unimi.dsi.fastutil.objects.Reference2ReferenceArrayMap;
 import it.unimi.dsi.fastutil.objects.ReferenceLinkedOpenHashSet;
 import me.jellysquid.mods.lithium.common.entity.EntityClassGroup;
-import me.jellysquid.mods.lithium.common.world.WorldHelper;
 import me.jellysquid.mods.lithium.common.world.chunk.ClassGroupFilterableList;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.collection.TypeFilterableList;
@@ -22,7 +21,7 @@ import java.util.Map;
  * Patches {@link TypeFilterableList} to allow grouping entities by arbitrary groups of classes instead of one class only.
  */
 @Mixin(TypeFilterableList.class)
-public abstract class TypeFilterableListMixin<T> implements ClassGroupFilterableList<T>, WorldHelper.MixinLoadTest {
+public abstract class TypeFilterableListMixin<T> implements ClassGroupFilterableList<T> {
 
     @Shadow
     @Final
@@ -34,7 +33,7 @@ public abstract class TypeFilterableListMixin<T> implements ClassGroupFilterable
     /**
      * Update our collections
      */
-    @ModifyVariable(method = "add", at = @At("HEAD"), argsOnly = true)
+    @ModifyVariable(method = "add(Ljava/lang/Object;)Z", at = @At("HEAD"), argsOnly = true)
     public T add(T entity) {
         for (Map.Entry<EntityClassGroup, ReferenceLinkedOpenHashSet<T>> entityGroupAndSet : this.entitiesByGroup.entrySet()) {
             EntityClassGroup entityGroup = entityGroupAndSet.getKey();
@@ -48,9 +47,10 @@ public abstract class TypeFilterableListMixin<T> implements ClassGroupFilterable
     /**
      * Update our collections
      */
-    @ModifyVariable(method = "remove", at = @At("HEAD"), argsOnly = true)
+    @ModifyVariable(method = "remove(Ljava/lang/Object;)Z", at = @At("HEAD"), argsOnly = true)
     public Object remove(Object o) {
         for (Map.Entry<EntityClassGroup, ReferenceLinkedOpenHashSet<T>> entityGroupAndSet : this.entitiesByGroup.entrySet()) {
+            //noinspection SuspiciousMethodCalls
             entityGroupAndSet.getValue().remove(o);
         }
         return o;

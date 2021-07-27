@@ -1,6 +1,7 @@
 package me.jellysquid.mods.lithium.common.ai.pathing;
 
 import net.minecraft.block.*;
+import net.minecraft.entity.ai.pathing.LandPathNodeMaker;
 import net.minecraft.entity.ai.pathing.PathNodeType;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.tag.BlockTags;
@@ -18,7 +19,7 @@ public class PathNodeDefaults {
             return PathNodeType.DANGER_CACTUS;
         } else if (state.isOf(Blocks.SWEET_BERRY_BUSH)) {
             return PathNodeType.DANGER_OTHER;
-        } else if (isFireDangerSource(state)) {
+        } else if (LandPathNodeMaker.inflictsFireDamage(state)) {
             return PathNodeType.DANGER_FIRE;
         } else if (state.getFluidState().isIn(FluidTags.WATER)) {
             return PathNodeType.WATER_BORDER;
@@ -35,8 +36,12 @@ public class PathNodeDefaults {
         Block block = state.getBlock();
         Material material = state.getMaterial();
 
-        if (state.isIn(BlockTags.TRAPDOORS) || state.isOf(Blocks.LILY_PAD)) {
+        if (state.isIn(BlockTags.TRAPDOORS) || state.isOf(Blocks.LILY_PAD) || state.isOf(Blocks.BIG_DRIPLEAF)) {
             return PathNodeType.TRAPDOOR;
+        }
+
+        if (state.isOf(Blocks.POWDER_SNOW)) {
+            return PathNodeType.POWDER_SNOW;
         }
 
         if (state.isOf(Blocks.CACTUS)) {
@@ -55,7 +60,12 @@ public class PathNodeDefaults {
             return PathNodeType.COCOA;
         }
 
-        if (isFireDangerSource(state)) {
+        FluidState fluidState = state.getFluidState();
+        if (fluidState.isIn(FluidTags.LAVA)) {
+            return PathNodeType.LAVA;
+        }
+
+        if (LandPathNodeMaker.inflictsFireDamage(state)) {
             return PathNodeType.DAMAGE_FIRE;
         }
 
@@ -79,23 +89,14 @@ public class PathNodeDefaults {
             return PathNodeType.LEAVES;
         }
 
-        if (block.isIn(BlockTags.FENCES) || block.isIn(BlockTags.WALLS) || ((block instanceof FenceGateBlock) && !state.get(FenceGateBlock.OPEN))) {
+        if (BlockTags.FENCES.contains(block) || (BlockTags.WALLS).contains(block) || ((block instanceof FenceGateBlock) && !state.get(FenceGateBlock.OPEN))) {
             return PathNodeType.FENCE;
         }
 
-        // Retrieve the fluid state from the block state to avoid a second lookup
-        FluidState fluid = state.getFluidState();
-
-        if (fluid.isIn(FluidTags.WATER)) {
+        if (fluidState.isIn(FluidTags.WATER)) {
             return PathNodeType.WATER;
-        } else if (fluid.isIn(FluidTags.LAVA)) {
-            return PathNodeType.LAVA;
         }
 
         return PathNodeType.OPEN;
-    }
-
-    private static boolean isFireDangerSource(BlockState blockState) {
-        return blockState.isIn(BlockTags.FIRE) || blockState.isOf(Blocks.LAVA) || blockState.isOf(Blocks.MAGMA_BLOCK) || CampfireBlock.isLitCampfire(blockState);
     }
 }

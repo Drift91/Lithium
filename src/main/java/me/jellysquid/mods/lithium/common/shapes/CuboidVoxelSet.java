@@ -25,7 +25,7 @@ public class CuboidVoxelSet extends VoxelSet {
     }
 
     @Override
-    public void set(int x, int y, int z, boolean resize, boolean included) {
+    public void set(int x, int y, int z) {
         throw new UnsupportedOperationException();
     }
 
@@ -39,21 +39,9 @@ public class CuboidVoxelSet extends VoxelSet {
         return axis.choose(this.maxX, this.maxY, this.maxZ);
     }
 
-
     @Override
     public boolean isEmpty() {
         return this.minX >= this.maxX || this.minY >= this.maxY || this.minZ >= this.maxZ;
     }
 
-    @Override
-    protected boolean isColumnFull(int minZ, int maxZ, int x, int y) {
-        return x >= this.minX && x < this.maxX &&
-                y >= this.minY && y < this.maxY &&
-                minZ >= this.minZ && maxZ <= this.maxZ; // arg maxZ is exclusive
-    }
-
-    @Override
-    protected void setColumn(int minZ, int maxZ, int x, int y, boolean included) {
-        throw new UnsupportedOperationException();
-    }
 }

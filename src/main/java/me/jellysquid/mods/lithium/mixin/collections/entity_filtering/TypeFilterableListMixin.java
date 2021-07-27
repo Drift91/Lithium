@@ -43,10 +43,6 @@ public class TypeFilterableListMixin<T> {
     }
 
     private <S> Collection<T> createAllOfType(Class<S> type) {
-        if (!this.elementType.isAssignableFrom(type)) {
-            throw new IllegalArgumentException("Don't know how to search for " + type);
-        }
-
         List<T> list = new ArrayList<>();
 
         for (T allElement : this.allElements) {
@@ -58,14 +54,5 @@ public class TypeFilterableListMixin<T> {
         this.elementsByType.put(type, list);
 
         return list;
-    }
-
-    /**
-     * @author JellySquid
-     * @reason Do not copy the list every call to provide immutability, instead wrap with an unmodifiable type
-     */
-    @Overwrite
-    public List<T> method_29903() {
-        return Collections.unmodifiableList(this.allElements);
     }
 }
